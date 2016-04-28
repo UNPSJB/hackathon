@@ -5,148 +5,134 @@
 #ifndef BEHAVIORTREE_H
 #define BEHAVIORTREE_H
 
-enum Status
+enum Estado
 {
-  BH_INVALID,
-	BH_SUCCESS,
-	BH_FAILURE,
-	BH_RUNNING,
+  BH_INVALIDO,
+	BH_EXITO,
+	BH_FALLO,
+	BH_CORRIENDO,
 };
 
-typedef struct Memoria {int *sensores, *nodos;} Memoria;
+typedef struct Memoria {int *sensores, *comportamientos;} Memoria;
 
-typedef Status (*Task)(Memoria);
+typedef Estado (*Tarea)(Memoria);
 
-class Behavior
+class Comportamiento
 {
 public:
-  Behavior(const char* name)
-	:	name(name), m_eStatus(BH_INVALID)
-	{
-	}
+  Comportamiento(const char* name)
+  :	name(name), estado(BH_INVALIDO)
+  {
+  }
 
-	Behavior(const char* name, Task task)
-	:	m_pTask(task), name(name), m_eStatus(BH_INVALID)
-	{
-	}
+  Comportamiento(const char* nombre, Tarea tarea)
+  :	tarea(tarea), nombre(nombre), estado(BH_INVALIDO)
+  {
+  }
 
-	virtual ~Behavior() {}
+	virtual ~Comportamiento() {}
 
-  virtual Status doTask(Memoria memoria) { return m_pTask(memoria); }
-	Status run(Memoria memoria) {
-    if (m_eStatus != BH_RUNNING)
-      {
-          onInitialize();
+  virtual Estado hacer(Memoria memoria) { return tarea(memoria); }
+  virtual void entrar() {}
+	virtual void iniciar() {}
+	Estado tick(Memoria memoria) {
+    entrar();
+    if (estado != BH_EJECUTANDO)
+      iniciar();
+
+    estado = hacerTarea(memoria);
+
+    if (estado != BH_EJECUTANDO)
+      finalizar(estado);
+    salir(estado);
+    return estado;
+  }
+  virtual void finalizar(Estado) {}
+  virtual void salir(Estado) {}
+
+protected:
+	Tarea tarea;
+  Estado estado;
+  const char* nombre;
+};
+
+class Compuesto : public Comportamiento
+{
+public:
+  Composite(const char* nombre) :	Comportamiento(nombre) { }
+  void aprender(Comportamiento* comportamiento) {
+    comportamientos.push_back(comportamiento);
+  }
+protected:
+  typedef std::vector<Comportamiento*> Comportamientos;
+  Comportamientos comportamientos;
+};
+
+class Secuencia : public Compuesto {
+public:
+  Secuencia(const char* nombre) :	Compuesto(nombre) { }
+
+  virtual void iniciar() {
+    actual = comportamientos.begin();
+  }
+
+  virtual Estado hacer(Memoria memoria)
+  {
+    // Ejecutar hasta que un comportamiento diga que esta corriendo
+    for (;;) {
+      Estado e = (*actual)->tick(memoria);
+      // Si un comportamiento esta corriendo o fallo hacer lo mismo
+      if (e != BH_EXITO) {
+        return e;
       }
 
-      m_eStatus = doTask(memoria);
+      // Hit the end of the array, job done!
+      if (++actual == comportamientos.end()) {
+        return BH_EXITO;
+      }
+    }
+  }
+  Comportamiento::iterator actual;
+};
 
-     if (m_eStatus != BH_RUNNING)
-     {
-          onTerminate(m_eStatus);
-     }
-     return m_eStatus;
+class Selector : public Compuesto {
+public:
+  Selector(const char* nombre) :	Compuesto(nombre) { }
+
+  virtual void iniciar() {
+    actual = comportamientos.begin();
   }
 
-	virtual void onInitialize() {}
-	virtual void onTerminate(Status) {}
+  virtual Status hacer(Memoria memoria) {
+    // Ejecutar hasta que un comportamiento diga que esta corriendo
+  	for (;;) {
+      Estado e = (*actual)->tick(memoria);
 
+      // Si un comportamiento esta corriendo o fue exitoso hacer lo mismo
+      if (e != BH_FALLO) {
+          return e;
+      }
+
+      // Hit the end of the array, it didn't end well...
+      if (++actual == comportamientos.end()) {
+          return BH_FALLO;
+      }
+    }
+  }
+  Comportamientos::iterator actual;
+};
+
+class Cerebro {
+public:
+  Cerebro(const char* nombre, Comportamiento comportamiento) :
+    nombre(nombre), comportamiento(comportamiento) { }
+
+  void actuar(Memoria memoria) {
+    estado = comportamiento.tick(memoria);
+  }
 protected:
-	Task m_pTask;
-  Status m_eStatus;
-  const char* name;
-};
-
-class Composite : public Behavior
-{
-public:
-  Composite(const char* name)
-  :	Behavior(name)
-  {
-  }
-    void aprender(Behavior* child) { m_Children.push_back(child); }
-protected:
-    typedef std::vector<Behavior*> Behaviors;
-    Behaviors m_Children;
-};
-
-class Sequence : public Composite
-{
-public:
-    Sequence(const char* name)
-	  :	Composite(name)
-	  {
-	  }
-
-    virtual ~Sequence()
-    {
-    }
-
-    virtual void onInitialize()
-    {
-        m_Current = m_Children.begin();
-    }
-
-    virtual Status doTask(Memoria memoria)
-    {
-        // Keep going until a child behavior says it's running.
-        for (;;)
-        {
-            Status s = (*m_Current)->run(memoria);
-
-            // If the child fails, or keeps running, do the same.
-            if (s != BH_SUCCESS)
-            {
-                return s;
-            }
-
-            // Hit the end of the array, job done!
-            if (++m_Current == m_Children.end())
-            {
-                return BH_SUCCESS;
-            }
-        }
-    }
-    Behaviors::iterator m_Current;
-};
-
-class Selector : public Composite
-{
-public:
-  Selector(const char* name)
-  :	Composite(name)
-  {
-  }
-    virtual ~Selector()
-    {
-    }
-
-    virtual void onInitialize()
-    {
-        m_Current = m_Children.begin();
-    }
-
-    virtual Status doTask(Memoria memoria)
-    {
-        // Keep going until a child behavior says its running.
-		for (;;)
-        {
-            Status s = (*m_Current)->run(memoria);
-
-            // If the child succeeds, or keeps running, do the same.
-            if (s != BH_FAILURE)
-            {
-                return s;
-            }
-
-            // Hit the end of the array, it didn't end well...
-            if (++m_Current == m_Children.end())
-            {
-                return BH_FAILURE;
-            }
-        }
-    }
-
-    Behaviors::iterator m_Current;
+  Comportamiento comportamiento;
+  Estado estado;
+  const char* nombre;
 };
 #endif
