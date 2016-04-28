@@ -1,7 +1,9 @@
+#include <StandardCplusplus.h>
+#include <vector>
+#include <iterator>
+
 #ifndef BEHAVIORTREE_H
 #define BEHAVIORTREE_H
-
-#include "Vector.h"
 
 enum Status
 {
@@ -64,7 +66,7 @@ public:
   }
     void aprender(Behavior* child) { m_Children.push_back(child); }
 protected:
-    typedef Vector<Behavior*> Behaviors;
+    typedef std::vector<Behavior*> Behaviors;
     Behaviors m_Children;
 };
 
@@ -80,12 +82,17 @@ public:
     {
     }
 
+    virtual void onInitialize()
+    {
+        m_Current = m_Children.begin();
+    }
+
     virtual Status doTask(Memoria memoria)
     {
         // Keep going until a child behavior says it's running.
-        for (int i = 0; m_Children.size() < i; i++)
+        for (;;)
         {
-            Status s = m_Children[i]->run(memoria);
+            Status s = (*m_Current)->run(memoria);
 
             // If the child fails, or keeps running, do the same.
             if (s != BH_SUCCESS)
@@ -94,12 +101,13 @@ public:
             }
 
             // Hit the end of the array, job done!
-            if (i == m_Children.size())
+            if (++m_Current == m_Children.end())
             {
                 return BH_SUCCESS;
             }
         }
     }
+    Behaviors::iterator m_Current;
 };
 
 class Selector : public Composite
@@ -113,12 +121,17 @@ public:
     {
     }
 
+    virtual void onInitialize()
+    {
+        m_Current = m_Children.begin();
+    }
+
     virtual Status doTask(Memoria memoria)
     {
         // Keep going until a child behavior says its running.
-        for (int i = 0; m_Children.size() < i; i++)
+		for (;;)
         {
-            Status s = m_Children[i]->run(memoria);
+            Status s = (*m_Current)->run(memoria);
 
             // If the child succeeds, or keeps running, do the same.
             if (s != BH_FAILURE)
@@ -127,11 +140,13 @@ public:
             }
 
             // Hit the end of the array, it didn't end well...
-            if (i == m_Children.size())
+            if (++m_Current == m_Children.end())
             {
                 return BH_FAILURE;
             }
         }
     }
+
+    Behaviors::iterator m_Current;
 };
 #endif

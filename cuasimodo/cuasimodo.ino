@@ -1,3 +1,5 @@
+#include <StandardCplusplus.h>
+#include <DCMotor.h>
 #include <FuzzyRule.h>
 #include <FuzzyComposition.h>
 #include <Fuzzy.h>
@@ -10,9 +12,10 @@
 #include "BehaviorTree.h"
 
 int pingPin = 15;
-
-// stores the pulse in Micro Seconds
 unsigned long pulseTime = 0;
+
+DCMotor motor1(M0_EN, M0_D0, M0_D1);
+DCMotor motor2(M1_EN, M1_D0, M1_D1);
 
 // Instanciando um objeto da biblioteca
 Fuzzy* fuzzy = new Fuzzy();
@@ -43,30 +46,26 @@ Status s1_negro(Memoria memoria) {
 }
 
 Status traccionar(Memoria memoria) {
-  Serial.printn("Avanzando");
+  Serial.println("Avanzando");
   motor1.setSpeed(MAX);
   motor2.setSpeed(MAX);
   return BH_SUCCESS;
 }
 
 Status rotar(Memoria memoria) {
-  Serial.printn("Rotar");
-  fuzzy.setInput(0, memoria.sensores[0]);
-  fuzzy.setInput(1, memoria.sensores[1]);
-  fuzzy.fuzzify();
-  motor1.setSpeed(fuzzy.defuzzify(1));
-  motor2.setSpeed(fuzzy.defuzzify(0));
+  Serial.println("Rotar");
+  fuzzy->setInput(0, memoria.sensores[0]);
+  fuzzy->setInput(1, memoria.sensores[1]);
+  fuzzy->fuzzify();
+  motor1.setSpeed(fuzzy->defuzzify(1));
+  motor2.setSpeed(fuzzy->defuzzify(0));
   return BH_SUCCESS;
 }
 
 void setup(){
 
   Serial.begin(9600);
-  // create array loop to iterate over every item in the array
-  for (int thisReading = 0; thisReading < numOfReadings; thisReading++) {
-    readings[thisReading] = 0;
-  }
-
+  
   //Motores
   motor1.setClockwise(false);
   motor2.setClockwise(false);
