@@ -17,20 +17,15 @@ typedef struct Memoria {int *sensores, *comportamientos;} Memoria;
 
 typedef Estado (*Tarea)(Memoria);
 
-class Comportamiento
+class Nodo
 {
 public:
-  Comportamiento(const char* name)
+  Nodo(const char* name)
   :	name(name), estado(BH_INVALIDO)
   {
   }
 
-  Comportamiento(const char* nombre, Tarea tarea)
-  :	tarea(tarea), nombre(nombre), estado(BH_INVALIDO)
-  {
-  }
-
-	virtual ~Comportamiento() {}
+	virtual ~Nodo() {}
 
   virtual Estado hacer(Memoria memoria) { return tarea(memoria); }
   virtual void entrar() {}
@@ -40,7 +35,7 @@ public:
     if (estado != BH_EJECUTANDO)
       iniciar();
 
-    estado = hacerTarea(memoria);
+    estado = hacer(memoria);
 
     if (estado != BH_EJECUTANDO)
       finalizar(estado);
@@ -51,21 +46,36 @@ public:
   virtual void salir(Estado) {}
 
 protected:
-	Tarea tarea;
   Estado estado;
   const char* nombre;
 };
 
-class Compuesto : public Comportamiento
+class Accion
 {
 public:
-  Composite(const char* nombre) :	Comportamiento(nombre) { }
+  Accion(const char* nombre, Tarea tarea)
+  :	Nodo(nombre), tarea(tarea)
+  {
+  }
+
+	virtual ~Accion() {}
+
+  virtual Estado hacer(Memoria memoria) { return tarea(memoria); }
+
+protected:
+	Tarea tarea;
+};
+
+class Compuesto : public Nodo
+{
+public:
+  Composite(const char* nombre) :	Nodo(nombre) { }
   void aprender(Comportamiento* comportamiento) {
     comportamientos.push_back(comportamiento);
   }
 protected:
-  typedef std::vector<Comportamiento*> Comportamientos;
-  Comportamientos comportamientos;
+  typedef std::vector<Nodos*> Nodos;
+  Nodos nodos;
 };
 
 class Secuencia : public Compuesto {
@@ -73,7 +83,7 @@ public:
   Secuencia(const char* nombre) :	Compuesto(nombre) { }
 
   virtual void iniciar() {
-    actual = comportamientos.begin();
+    actual = nodos.begin();
   }
 
   virtual Estado hacer(Memoria memoria)
@@ -87,12 +97,12 @@ public:
       }
 
       // Hit the end of the array, job done!
-      if (++actual == comportamientos.end()) {
+      if (++actual == nodos.end()) {
         return BH_EXITO;
       }
     }
   }
-  Comportamiento::iterator actual;
+  Nodo::iterator actual;
 };
 
 class Selector : public Compuesto {
@@ -100,10 +110,10 @@ public:
   Selector(const char* nombre) :	Compuesto(nombre) { }
 
   virtual void iniciar() {
-    actual = comportamientos.begin();
+    actual = nodos.begin();
   }
 
-  virtual Status hacer(Memoria memoria) {
+  virtual Estado hacer(Memoria memoria) {
     // Ejecutar hasta que un comportamiento diga que esta corriendo
   	for (;;) {
       Estado e = (*actual)->tick(memoria);
@@ -114,24 +124,24 @@ public:
       }
 
       // Hit the end of the array, it didn't end well...
-      if (++actual == comportamientos.end()) {
+      if (++actual == nodos.end()) {
           return BH_FALLO;
       }
     }
   }
-  Comportamientos::iterator actual;
+  Nodo::iterator actual;
 };
 
-class Cerebro {
+class Comportamiento {
 public:
-  Cerebro(const char* nombre, Comportamiento comportamiento) :
-    nombre(nombre), comportamiento(comportamiento) { }
+  Comportamiento(const char* nombre, Nodo nodo) :
+    nombre(nombre), nodo(nodo) { }
 
   void actuar(Memoria memoria) {
-    estado = comportamiento.tick(memoria);
+    estado = nodo.tick(memoria);
   }
 protected:
-  Comportamiento comportamiento;
+  Nodo nodo;
   Estado estado;
   const char* nombre;
 };
