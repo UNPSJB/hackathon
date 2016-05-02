@@ -1,4 +1,7 @@
 #include <StandardCplusplus.h>
+#include <utility.h>
+#include <system_configuration.h>
+#include <unwind-cxx.h>
 #include <DCMotor.h>
 #include <FuzzyRule.h>
 #include <FuzzyComposition.h>
@@ -12,7 +15,7 @@
 #include "BehaviorTree.h"
 
 int pingPin = 15;
-unsigned long pulseTime = 0;
+int pulseTime = 0;
 
 DCMotor motor1(M0_EN, M0_D0, M0_D1);
 DCMotor motor2(M1_EN, M1_D0, M1_D1);
@@ -26,8 +29,8 @@ int BLANCO = 990;
 int CORTE = (BLANCO + NEGRO) / 2;
 int MAX = 90;
 
-long sensores[2] = {100, 50};
-long comportamientos[1] = {0};
+unsigned long sensores[2] = {100, 50};
+unsigned long comportamientos[1] = {0};
 
 Memoria memoria = {sensores, comportamientos};
 

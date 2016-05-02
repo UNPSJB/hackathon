@@ -1,3 +1,7 @@
+#include <StandardCplusplus.h>
+#include <utility.h>
+#include <system_configuration.h>
+#include <unwind-cxx.h>
 #include <vector>
 #include <iterator>
 
@@ -12,7 +16,7 @@ enum Estado
 	BH_CORRIENDO,
 };
 
-typedef struct Memoria {long *sensores, *comportamientos;} Memoria;
+typedef struct Memoria {unsigned long *sensores, *comportamientos;} Memoria;
 
 typedef Estado (*Tarea)(Memoria);
 typedef Estado (*Ver)(int, Memoria);
