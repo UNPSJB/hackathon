@@ -1,4 +1,3 @@
-#include <StandardCplusplus.h>
 #include <vector>
 #include <iterator>
 
@@ -16,28 +15,29 @@ enum Estado
 typedef struct Memoria {int *sensores, *comportamientos;} Memoria;
 
 typedef Estado (*Tarea)(Memoria);
+typedef Estado (*Ver)(int, Memoria);
 
 class Nodo
 {
 public:
-  Nodo(const char* name)
-  :	name(name), estado(BH_INVALIDO)
+  Nodo(const char* nombre)
+  :	nombre(nombre), estado(BH_INVALIDO)
   {
   }
 
 	virtual ~Nodo() {}
 
-  virtual Estado hacer(Memoria memoria) { return tarea(memoria); }
+  virtual Estado hacer(Memoria memoria) = 0;
   virtual void entrar() {}
 	virtual void iniciar() {}
 	Estado tick(Memoria memoria) {
     entrar();
-    if (estado != BH_EJECUTANDO)
+    if (estado != BH_CORRIENDO)
       iniciar();
 
     estado = hacer(memoria);
 
-    if (estado != BH_EJECUTANDO)
+    if (estado != BH_CORRIENDO)
       finalizar(estado);
     salir(estado);
     return estado;
@@ -50,7 +50,7 @@ protected:
   const char* nombre;
 };
 
-class Accion
+class Accion : public Nodo
 {
 public:
   Accion(const char* nombre, Tarea tarea)
@@ -66,15 +66,32 @@ protected:
 	Tarea tarea;
 };
 
+class Mirar : public Nodo
+{
+public:
+  Mirar(const char* nombre, int indice, Ver ver)
+  :	Nodo(nombre), indice(indice), ver(ver)
+  {
+  }
+
+	virtual ~Mirar() {}
+
+  virtual Estado hacer(Memoria memoria) { return ver(indice, memoria); }
+
+protected:
+	int indice;
+  Ver ver;
+};
+
 class Compuesto : public Nodo
 {
 public:
-  Composite(const char* nombre) :	Nodo(nombre) { }
-  void aprender(Comportamiento* comportamiento) {
-    comportamientos.push_back(comportamiento);
+  Compuesto(const char* nombre) :	Nodo(nombre) { }
+  void aprender(Nodo* nodo) {
+    nodos.push_back(nodo);
   }
 protected:
-  typedef std::vector<Nodos*> Nodos;
+  typedef std::vector<Nodo*> Nodos;
   Nodos nodos;
 };
 
@@ -102,7 +119,7 @@ public:
       }
     }
   }
-  Nodo::iterator actual;
+  Nodos::iterator actual;
 };
 
 class Selector : public Compuesto {
@@ -129,20 +146,16 @@ public:
       }
     }
   }
-  Nodo::iterator actual;
+  Nodos::iterator actual;
 };
 
-class Comportamiento {
+class Comportamiento : public Selector {
 public:
-  Comportamiento(const char* nombre, Nodo nodo) :
-    nombre(nombre), nodo(nodo) { }
+  Comportamiento(const char* nombre) :
+    Selector(nombre) { }
 
-  void actuar(Memoria memoria) {
-    estado = nodo.tick(memoria);
+  Estado actuar(Memoria memoria) {
+    return tick(memoria);
   }
-protected:
-  Nodo nodo;
-  Estado estado;
-  const char* nombre;
 };
 #endif
