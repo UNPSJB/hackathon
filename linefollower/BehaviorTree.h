@@ -12,7 +12,7 @@ enum Estado
 	BH_CORRIENDO,
 };
 
-typedef struct Memoria {int *sensores, *comportamientos;} Memoria;
+typedef struct Memoria {long *sensores, *comportamientos;} Memoria;
 
 typedef Estado (*Tarea)(Memoria);
 typedef Estado (*Ver)(int, Memoria);

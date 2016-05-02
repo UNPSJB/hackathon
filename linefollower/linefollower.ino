@@ -11,31 +11,35 @@
 #include <FuzzyRuleAntecedent.h>
 #include "BehaviorTree.h"
 
+int M0_EN = 27;
+int M0_D0 = 23;
+int M0_D1 = 24;
+int M1_EN = 28;
+int M1_D0 = 25;
+int M1_D1 = 26;
 int pingPin = 15;
 unsigned long pulseTime = 0;
 
 DCMotor motor1(M0_EN, M0_D0, M0_D1);
 DCMotor motor2(M1_EN, M1_D0, M1_D1);
 
-// Instanciando um objeto da biblioteca
+// Instanciando un objeto de biblioteca
 Fuzzy* fuzzy = new Fuzzy();
 Comportamiento comportamiento("N6 Seguidor de lineas");
 
 int BLANCO = 80;
 int MAX = 90;
 
-int sensores[2] = {100, 50};
-int comportamientos[1] = {0};
+long sensores[2] = {100, 50};
+long comportamientos[1] = {0};
 
 Memoria memoria = {sensores, comportamientos};
 
 Estado blanco(int indice, Memoria memoria) {
-  cout << "Es blanco" << endl;
   return memoria.sensores[indice] < BLANCO? BH_EXITO : BH_FALLO;
 }
 
 Estado negro(int indice, Memoria memoria) {
-  cout << "Es negro" << endl;
   return memoria.sensores[indice] > BLANCO? BH_EXITO : BH_FALLO;
 }
 
@@ -56,6 +60,14 @@ Estado rotar(Memoria memoria) {
   return BH_CORRIENDO;
 }
 
+long microsecondsToCentimeters(unsigned long microseconds)
+{
+  // The speed of sound is 340 m/s or 29 microseconds per centimeter.
+  // The ping travels out and back, so to find the distance of the
+  // object we take half of the distance travelled.
+  return microseconds / 29 / 2;
+}
+
 void setup(){
 
   Serial.begin(9600);
@@ -64,52 +76,52 @@ void setup(){
   motor1.setClockwise(false);
   motor2.setClockwise(false);
 
-  FuzzyInput intencidad(1);
-  FuzzySet small(0, 30, 30, 50);
-  distance.addFuzzySet(&small);
-  FuzzySet safe(40, 60, 60, 80);
-  distance.addFuzzySet(&safe);
-  FuzzySet big(60, 80, 80, 100);
-  distance.addFuzzySet(&big);
+  FuzzyInput* intencidad = new FuzzyInput(1);
+  FuzzySet* small = new FuzzySet(0, 30, 30, 50);
+  intencidad->addFuzzySet(small);
+  FuzzySet* safe = new FuzzySet(40, 60, 60, 80);
+  intencidad->addFuzzySet(safe);
+  FuzzySet* big = new FuzzySet(60, 80, 80, 100);
+  intencidad->addFuzzySet(big);
 
-  fuzzy.addFuzzyInput(intencidad);
+  fuzzy->addFuzzyInput(intencidad);
 
-  FuzzyOutput velocidad(1);
-  FuzzySet slow(0, 10, 10, 20);
-  velocity.addFuzzySet(&slow);
-  FuzzySet average(10, 20, 30, 40);
-  velocity.addFuzzySet(&average);
-  FuzzySet fast(30, 40, 40, 50);
-  velocity.addFuzzySet(fast);
+  FuzzyOutput* velocidad = new FuzzyOutput(1);
+  FuzzySet* slow = new FuzzySet(0, 10, 10, 20);
+  velocidad->addFuzzySet(slow);
+  FuzzySet* average = new FuzzySet(10, 20, 30, 40);
+  velocidad->addFuzzySet(average);
+  FuzzySet* fast = new FuzzySet(30, 40, 40, 50);
+  velocidad->addFuzzySet(fast);
 
-  fuzzy.addFuzzyOutput(velocidad);
+  fuzzy->addFuzzyOutput(velocidad);
 
   // FuzzyRule "SE distancia = pequena ENTAO velocidade = lenta"
-  FuzzyRuleAntecedent ifDistanceSmall(); // Instanciando um Antecedente para a expresso
-  ifDistanceSmall.joinSingle(&small); // Adicionando o FuzzySet correspondente ao objeto Antecedente
-  FuzzyRuleConsequent thenVelocitySlow(); // Instancinado um Consequente para a expressao
-  thenVelocitySlow.addOutput(&slow);// Adicionando o FuzzySet correspondente ao objeto Consequente
+  FuzzyRuleAntecedent* ifDistanceSmall = new FuzzyRuleAntecedent(); // Instanciando um Antecedente para a expresso
+  ifDistanceSmall->joinSingle(small); // Adicionando o FuzzySet correspondente ao objeto Antecedente
+  FuzzyRuleConsequent* thenVelocitySlow = new FuzzyRuleConsequent(); // Instancinado um Consequente para a expressao
+  thenVelocitySlow->addOutput(slow);// Adicionando o FuzzySet correspondente ao objeto Consequente
   // Instanciando um objeto FuzzyRule
-  FuzzyRule fuzzyRule01(1, &ifDistanceSmall, &thenVelocitySlow); // Passando o Antecedente e o Consequente da expressao
-  fuzzy.addFuzzyRule(&fuzzyRule01); // Adicionando o FuzzyRule ao objeto Fuzzy
+  FuzzyRule* fuzzyRule01 = new FuzzyRule(1, ifDistanceSmall, thenVelocitySlow); // Passando o Antecedente e o Consequente da expressao
+  fuzzy->addFuzzyRule(fuzzyRule01); // Adicionando o FuzzyRule ao objeto Fuzzy
 
   // FuzzyRule "SE distancia = segura ENTAO velocidade = normal"
-  FuzzyRuleAntecedent ifDistanceSafe(); // Instanciando um Antecedente para a expresso
-  ifDistanceSafe.joinSingle(&safe); // Adicionando o FuzzySet correspondente ao objeto Antecedente
-  FuzzyRuleConsequent thenVelocityAverage(); // Instancinado um Consequente para a expressao
-  thenVelocityAverage.addOutput(&average);// Adicionando o FuzzySet correspondente ao objeto Consequente
+  FuzzyRuleAntecedent* ifDistanceSafe = new FuzzyRuleAntecedent(); // Instanciando um Antecedente para a expresso
+  ifDistanceSafe->joinSingle(safe); // Adicionando o FuzzySet correspondente ao objeto Antecedente
+  FuzzyRuleConsequent* thenVelocityAverage = new FuzzyRuleConsequent(); // Instancinado um Consequente para a expressao
+  thenVelocityAverage->addOutput(average);// Adicionando o FuzzySet correspondente ao objeto Consequente
   // Instanciando um objeto FuzzyRule
-  FuzzyRule fuzzyRule02(2, &ifDistanceSafe, &thenVelocityAverage); // Passando o Antecedente e o Consequente da expressao
-  fuzzy.addFuzzyRule(&fuzzyRule02); // Adicionando o FuzzyRule ao objeto Fuzzy
+  FuzzyRule* fuzzyRule02 = new FuzzyRule(2, ifDistanceSafe, thenVelocityAverage); // Passando o Antecedente e o Consequente da expressao
+  fuzzy->addFuzzyRule(fuzzyRule02); // Adicionando o FuzzyRule ao objeto Fuzzy
 
   // FuzzyRule "SE distancia = grande ENTAO velocidade = alta"
-  FuzzyRuleAntecedent ifDistanceBig(); // Instanciando um Antecedente para a expresso
-  ifDistanceBig.joinSingle(&big); // Adicionando o FuzzySet correspondente ao objeto Antecedente
-  FuzzyRuleConsequent thenVelocityFast(); // Instancinado um Consequente para a expressao
-  thenVelocityFast.addOutput(&fast);// Adicionando o FuzzySet correspondente ao objeto Consequente
+  FuzzyRuleAntecedent* ifDistanceBig = new FuzzyRuleAntecedent(); // Instanciando um Antecedente para a expresso
+  ifDistanceBig->joinSingle(big); // Adicionando o FuzzySet correspondente ao objeto Antecedente
+  FuzzyRuleConsequent* thenVelocityFast = new FuzzyRuleConsequent(); // Instancinado um Consequente para a expressao
+  thenVelocityFast->addOutput(fast);// Adicionando o FuzzySet correspondente ao objeto Consequente
   // Instanciando um objeto FuzzyRule
-  FuzzyRule fuzzyRule03(3, &ifDistanceBig, &thenVelocityFast); // Passando o Antecedente e o Consequente da expressao
-  fuzzy.addFuzzyRule(&fuzzyRule03); // Adicionando o FuzzyRule ao objeto Fuzzy
+  FuzzyRule* fuzzyRule03 = new FuzzyRule(3, ifDistanceBig, thenVelocityFast); // Passando o Antecedente e o Consequente da expressao
+  fuzzy->addFuzzyRule(fuzzyRule03); // Adicionando o FuzzyRule ao objeto Fuzzy
 
   // Acciones
   Accion avanzar("Avanzar", traccionar);
@@ -159,23 +171,15 @@ void loop(){
   // convert the time into a distance
   memoria.sensores[2] = microsecondsToCentimeters(pulseTime);
 
-  fuzzy.setInput(1, memoria.sensores[2]);
+  fuzzy->setInput(1, memoria.sensores[2]);
 
-  fuzzy.fuzzify();
+  fuzzy->fuzzify();
 
-  float output = fuzzy.defuzzify(1);
+  float output = fuzzy->defuzzify(1);
   Serial.print(memoria.sensores[2]);
   Serial.print(" ");
   Serial.println(output);
   // wait 100 milli seconds before looping again
   comportamiento.actuar(memoria);
   delay(100);
-}
-
-long microsecondsToCentimeters(long microseconds)
-{
-  // The speed of sound is 340 m/s or 29 microseconds per centimeter.
-  // The ping travels out and back, so to find the distance of the
-  // object we take half of the distance travelled.
-  return microseconds / 29 / 2;
 }
