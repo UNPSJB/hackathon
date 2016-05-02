@@ -1,3 +1,6 @@
 [submodule "libs/eFLL"]
 	path = libs/eFLL
 	url = https://github.com/zerokol/eFLL.git
+[submodule "libs/StandardCplusplus"]
+	path = libs/StandardCplusplus
+	url = https://github.com/maniacbug/StandardCplusplus.git
