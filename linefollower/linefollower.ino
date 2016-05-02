@@ -14,58 +14,30 @@
 #include <FuzzyRuleAntecedent.h>
 #include "BehaviorTree.h"
 
-int pingPin = 15;
+#define izquierdaIR A0
+#define derechaIR A1
+#define pingPin A5
+
+
 int pulseTime = 0;
 
-DCMotor motor1(M0_EN, M0_D0, M0_D1);
+
+DCMotor motor1(M0_EN, M0_D0, M0_D1);  
 DCMotor motor2(M1_EN, M1_D0, M1_D1);
 
 // Instanciando un objeto de biblioteca
 Fuzzy* fuzzy = new Fuzzy();
-Comportamiento comportamiento("N6 Seguidor de lineas");
+Comportamiento* comportamiento = new Comportamiento("N6 Seguidor de lineas");
 
 int NEGRO = 430;
 int BLANCO = 990;
 int CORTE = (BLANCO + NEGRO) / 2;
 int MAX = 90;
 
-unsigned long sensores[2] = {100, 50};
-unsigned long comportamientos[1] = {0};
+unsigned long sensores[10] = {0};
+unsigned long comportamientos[10] = {0};
 
 Memoria memoria = {sensores, comportamientos};
-
-Estado blanco(int indice, Memoria memoria) {
-  return memoria.sensores[indice] < CORTE? BH_EXITO : BH_FALLO;
-}
-
-Estado negro(int indice, Memoria memoria) {
-  return memoria.sensores[indice] > CORTE? BH_EXITO : BH_FALLO;
-}
-
-Estado traccionar(Memoria memoria) {
-  Serial.println("Avanzando");
-  motor1.setSpeed(MAX);
-  motor2.setSpeed(MAX);
-  return BH_CORRIENDO;
-}
-
-Estado rotar(Memoria memoria) {
-  Serial.println("Rotar");
-  fuzzy->setInput(0, memoria.sensores[0]);
-  fuzzy->setInput(1, memoria.sensores[1]);
-  fuzzy->fuzzify();
-  motor1.setSpeed(fuzzy->defuzzify(1));
-  motor2.setSpeed(fuzzy->defuzzify(0));
-  return BH_CORRIENDO;
-}
-
-long microsecondsToCentimeters(unsigned long microseconds)
-{
-  // The speed of sound is 340 m/s or 29 microseconds per centimeter.
-  // The ping travels out and back, so to find the distance of the
-  // object we take half of the distance travelled.
-  return microseconds / 29 / 2;
-}
 
 void setup(){
 
@@ -123,31 +95,35 @@ void setup(){
   fuzzy->addFuzzyRule(fuzzyRule03); // Adicionando o FuzzyRule ao objeto Fuzzy
 
   // Acciones
-  Accion avanzar("Avanzar", traccionar);
-  Accion girar("Rotar", rotar);
-  Mirar s0b("S0 blanco", 0, blanco);
-  Mirar s1b("S1 blanco", 1, blanco);
-  Mirar s0n("S1 negro", 0, negro);
-  Mirar s1n("S1 negro", 1, negro);
+  Accion* avanzar = new Accion("Avanzar", traccionar);
+  Accion* girar = new Accion("Rotar", rotar);
+  Mirar* s0b = new Mirar("S0 blanco", 0, blanco);
+  Mirar* s1b = new Mirar("S1 blanco", 1, blanco);
+  Mirar* s0n = new Mirar("S1 negro", 0, negro);
+  Mirar* s1n = new Mirar("S1 negro", 1, negro);
 
   // Seguir la linea
-  Secuencia seguir("Seguir linea");
-  seguir.aprender(&s0b);
-  seguir.aprender(&s1b);
-  seguir.aprender(&avanzar);
-  comportamiento.aprender(&seguir);
+  Secuencia* seguir = new Secuencia("Seguir linea");
+  seguir->aprender(s0b);
+  seguir->aprender(s1b);
+  seguir->aprender(avanzar);
+  comportamiento->aprender(seguir);
 
-  Secuencia girar_der("Girar derecha");
-  girar_der.aprender(&s0n);
-  girar_der.aprender(&s1b);
-  girar_der.aprender(&girar);
-  comportamiento.aprender(&girar_der);
+  Secuencia* girar_der = new Secuencia("Girar derecha");
+  girar_der->aprender(s0n);
+  girar_der->aprender(s1b);
+  girar_der->aprender(girar);
+  comportamiento->aprender(girar_der);
 
-  Secuencia girar_izq("Girar izquierda");
-  girar_izq.aprender(&s1n);
-  girar_izq.aprender(&s0b);
-  girar_izq.aprender(&girar);
-  comportamiento.aprender(&girar_izq);
+  Secuencia* girar_izq = new Secuencia("Girar izquierda");
+  girar_izq->aprender(s1n);
+  girar_izq->aprender(s0b);
+  girar_izq->aprender(girar);
+  comportamiento->aprender(girar_izq);
+  
+  Serial.println(" === END SETUP ===");
+  Serial.println(CORTE);
+  
 }
 
 void loop(){
@@ -168,17 +144,62 @@ void loop(){
   pulseTime = pulseIn(pingPin, HIGH);
 
   // convert the time into a distance
+  memoria.sensores[0] = analogRead(izquierdaIR);
+  memoria.sensores[1] = analogRead(derechaIR);
   memoria.sensores[2] = microsecondsToCentimeters(pulseTime);
-
+  
+  
   fuzzy->setInput(1, memoria.sensores[2]);
 
   fuzzy->fuzzify();
 
   float output = fuzzy->defuzzify(1);
-  Serial.print(memoria.sensores[2]);
-  Serial.print(" ");
-  Serial.println(output);
+
+  //Serial.print(memoria.sensores[0]);
+  //  Serial.print(" ");
+  //Serial.print(memoria.sensores[1]);
+  //Serial.print(" ");
+  //Serial.print(memoria.sensores[2]);
+  //Serial.print(" ");
+  //Serial.println(output);
+  
   // wait 100 milli seconds before looping again
-  comportamiento.actuar(memoria);
+  comportamiento->actuar(memoria);
   delay(100);
 }
+
+
+
+Estado blanco(int indice, Memoria memoria) {
+  return memoria.sensores[indice] > CORTE? BH_EXITO : BH_FALLO;
+}
+
+Estado negro(int indice, Memoria memoria) {
+  return memoria.sensores[indice] < CORTE? BH_EXITO : BH_FALLO;
+}
+
+Estado traccionar(Memoria memoria) {
+  Serial.println("Avanzando");
+  //motor1.setSpeed(MAX);
+  //motor2.setSpeed(MAX);
+  return BH_CORRIENDO;
+}
+
+Estado rotar(Memoria memoria) {
+  Serial.println("Rotar");
+  //fuzzy->setInput(0, memoria.sensores[0]);
+  //fuzzy->setInput(1, memoria.sensores[1]);
+  //fuzzy->fuzzify();
+  //motor1.setSpeed(fuzzy->defuzzify(1));
+  //motor2.setSpeed(fuzzy->defuzzify(0));
+  return BH_CORRIENDO;
+}
+
+long microsecondsToCentimeters(unsigned long microseconds)
+{
+  // The speed of sound is 340 m/s or 29 microseconds per centimeter.
+  // The ping travels out and back, so to find the distance of the
+  // object we take half of the distance travelled.
+  return microseconds / 29 / 2;
+}
+
