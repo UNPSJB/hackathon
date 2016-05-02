@@ -11,12 +11,6 @@
 #include <FuzzyRuleAntecedent.h>
 #include "BehaviorTree.h"
 
-int M0_EN = 27;
-int M0_D0 = 23;
-int M0_D1 = 24;
-int M1_EN = 28;
-int M1_D0 = 25;
-int M1_D1 = 26;
 int pingPin = 15;
 unsigned long pulseTime = 0;
 
@@ -27,7 +21,9 @@ DCMotor motor2(M1_EN, M1_D0, M1_D1);
 Fuzzy* fuzzy = new Fuzzy();
 Comportamiento comportamiento("N6 Seguidor de lineas");
 
-int BLANCO = 80;
+int NEGRO = 430;
+int BLANCO = 990;
+int CORTE = (BLANCO + NEGRO) / 2;
 int MAX = 90;
 
 long sensores[2] = {100, 50};
@@ -36,11 +32,11 @@ long comportamientos[1] = {0};
 Memoria memoria = {sensores, comportamientos};
 
 Estado blanco(int indice, Memoria memoria) {
-  return memoria.sensores[indice] < BLANCO? BH_EXITO : BH_FALLO;
+  return memoria.sensores[indice] < CORTE? BH_EXITO : BH_FALLO;
 }
 
 Estado negro(int indice, Memoria memoria) {
-  return memoria.sensores[indice] > BLANCO? BH_EXITO : BH_FALLO;
+  return memoria.sensores[indice] > CORTE? BH_EXITO : BH_FALLO;
 }
 
 Estado traccionar(Memoria memoria) {
