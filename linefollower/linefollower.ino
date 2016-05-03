@@ -17,22 +17,18 @@
 #define izquierdaIR A0
 #define derechaIR A1
 #define pingPin A5
+#define IR_MIN = 430;
+#define IR_MAX = 990;
+#define IR_CORTE = (IR_MIN + IR_MAX) / 2;
+#define MOTOR_MIN = 10;
+#define MOTOR_MAX = 100;
 
-
-int pulseTime = 0;
-
-
-DCMotor motor1(M0_EN, M0_D0, M0_D1);  
+DCMotor motor1(M0_EN, M0_D0, M0_D1);
 DCMotor motor2(M1_EN, M1_D0, M1_D1);
 
 // Instanciando un objeto de biblioteca
 Fuzzy* fuzzy = new Fuzzy();
 Comportamiento* comportamiento = new Comportamiento("N6 Seguidor de lineas");
-
-int NEGRO = 430;
-int BLANCO = 990;
-int CORTE = (BLANCO + NEGRO) / 2;
-int MAX = 90;
 
 unsigned long sensores[10] = {0};
 unsigned long comportamientos[10] = {0};
@@ -48,86 +44,141 @@ void setup(){
   motor2.setClockwise(false);
 
   FuzzyInput* intencidad = new FuzzyInput(1);
-  FuzzySet* small = new FuzzySet(0, 30, 30, 50);
-  intencidad->addFuzzySet(small);
-  FuzzySet* safe = new FuzzySet(40, 60, 60, 80);
-  intencidad->addFuzzySet(safe);
-  FuzzySet* big = new FuzzySet(60, 80, 80, 100);
-  intencidad->addFuzzySet(big);
+  FuzzySet* baja = new FuzzySet(0, 30, 30, 50);
+  intencidad->addFuzzySet(baja);
+  FuzzySet* alta = new FuzzySet(40, 60, 60, 80);
+  intencidad->addFuzzySet(alta);
 
   fuzzy->addFuzzyInput(intencidad);
 
   FuzzyOutput* velocidad = new FuzzyOutput(1);
-  FuzzySet* slow = new FuzzySet(0, 10, 10, 20);
-  velocidad->addFuzzySet(slow);
-  FuzzySet* average = new FuzzySet(10, 20, 30, 40);
-  velocidad->addFuzzySet(average);
-  FuzzySet* fast = new FuzzySet(30, 40, 40, 50);
-  velocidad->addFuzzySet(fast);
+  FuzzySet* lenta = new FuzzySet(0, 10, 10, 20);
+  velocidad->addFuzzySet(lenta);
+  FuzzySet* rapida = new FuzzySet(10, 20, 30, 40);
+  velocidad->addFuzzySet(rapida);
 
   fuzzy->addFuzzyOutput(velocidad);
 
-  // FuzzyRule "SE distancia = pequena ENTAO velocidade = lenta"
-  FuzzyRuleAntecedent* ifDistanceSmall = new FuzzyRuleAntecedent(); // Instanciando um Antecedente para a expresso
-  ifDistanceSmall->joinSingle(small); // Adicionando o FuzzySet correspondente ao objeto Antecedente
-  FuzzyRuleConsequent* thenVelocitySlow = new FuzzyRuleConsequent(); // Instancinado um Consequente para a expressao
-  thenVelocitySlow->addOutput(slow);// Adicionando o FuzzySet correspondente ao objeto Consequente
-  // Instanciando um objeto FuzzyRule
-  FuzzyRule* fuzzyRule01 = new FuzzyRule(1, ifDistanceSmall, thenVelocitySlow); // Passando o Antecedente e o Consequente da expressao
-  fuzzy->addFuzzyRule(fuzzyRule01); // Adicionando o FuzzyRule ao objeto Fuzzy
+  // Si la intensidad es baja => la velocidad es rapida
+  FuzzyRuleAntecedent* ifIntensidadBaja = new FuzzyRuleAntecedent();
+  ifIntensidadBaja->joinSingle(baja);
+  FuzzyRuleConsequent* thenVelocidadRapida = new FuzzyRuleConsequent();
+  thenVelocidadRapida->addOutput(rapida);
+  // La regla
+  FuzzyRule* fuzzyRegla01 = new FuzzyRule(1, ifIntensidadBaja, thenVelocidadRapida);
+  fuzzy->addFuzzyRule(fuzzyRegla01);
 
-  // FuzzyRule "SE distancia = segura ENTAO velocidade = normal"
-  FuzzyRuleAntecedent* ifDistanceSafe = new FuzzyRuleAntecedent(); // Instanciando um Antecedente para a expresso
-  ifDistanceSafe->joinSingle(safe); // Adicionando o FuzzySet correspondente ao objeto Antecedente
-  FuzzyRuleConsequent* thenVelocityAverage = new FuzzyRuleConsequent(); // Instancinado um Consequente para a expressao
-  thenVelocityAverage->addOutput(average);// Adicionando o FuzzySet correspondente ao objeto Consequente
-  // Instanciando um objeto FuzzyRule
-  FuzzyRule* fuzzyRule02 = new FuzzyRule(2, ifDistanceSafe, thenVelocityAverage); // Passando o Antecedente e o Consequente da expressao
-  fuzzy->addFuzzyRule(fuzzyRule02); // Adicionando o FuzzyRule ao objeto Fuzzy
+  // Si la intensidad es alta => la velocidad es baja
+  FuzzyRuleAntecedent* ifIntensidadAlta = new FuzzyRuleAntecedent();
+  ifIntensidadAlta->joinSingle(alta);
+  FuzzyRuleConsequent* thenVelocidadLenta = new FuzzyRuleConsequent();
+  thenVelocidadLenta->addOutput(lenta);
+  // La regla
+  FuzzyRule* fuzzyRegla02 = new FuzzyRule(3, ifIntensidadAlta, thenVelocidadLenta);
+  fuzzy->addFuzzyRule(fuzzyRegla02);
 
-  // FuzzyRule "SE distancia = grande ENTAO velocidade = alta"
-  FuzzyRuleAntecedent* ifDistanceBig = new FuzzyRuleAntecedent(); // Instanciando um Antecedente para a expresso
-  ifDistanceBig->joinSingle(big); // Adicionando o FuzzySet correspondente ao objeto Antecedente
-  FuzzyRuleConsequent* thenVelocityFast = new FuzzyRuleConsequent(); // Instancinado um Consequente para a expressao
-  thenVelocityFast->addOutput(fast);// Adicionando o FuzzySet correspondente ao objeto Consequente
-  // Instanciando um objeto FuzzyRule
-  FuzzyRule* fuzzyRule03 = new FuzzyRule(3, ifDistanceBig, thenVelocityFast); // Passando o Antecedente e o Consequente da expressao
-  fuzzy->addFuzzyRule(fuzzyRule03); // Adicionando o FuzzyRule ao objeto Fuzzy
+  // Acciones del comportamiento
+  Accion* a_avanzar = new Accion("Avanzar", f_avanzar);
+  Accion* a_girar = new Accion("Rotar", f_girar);
+  Accion* a_retroceder = new Accion("Rotar", f_retroceder);
+  Mirar* m_s0b = new Mirar("S0 blanco", 0, f_blanco);
+  Mirar* m_s1b = new Mirar("S1 blanco", 1, f_blanco);
+  Mirar* m_s0n = new Mirar("S1 negro", 0, f_negro);
+  Mirar* m_s1n = new Mirar("S1 negro", 1, f_negro);
 
-  // Acciones
-  Accion* avanzar = new Accion("Avanzar", traccionar);
-  Accion* girar = new Accion("Rotar", rotar);
-  Mirar* s0b = new Mirar("S0 blanco", 0, blanco);
-  Mirar* s1b = new Mirar("S1 blanco", 1, blanco);
-  Mirar* s0n = new Mirar("S1 negro", 0, negro);
-  Mirar* s1n = new Mirar("S1 negro", 1, negro);
-
+  // Comportamientos
   // Seguir la linea
-  Secuencia* seguir = new Secuencia("Seguir linea");
-  seguir->aprender(s0b);
-  seguir->aprender(s1b);
-  seguir->aprender(avanzar);
-  comportamiento->aprender(seguir);
+  // seguir := blanco y blanco => avanzar
+  Secuencia* c_seguir = new Secuencia("Seguir linea");
+  seguir->aprender(m_s0b);
+  seguir->aprender(m_s1b);
+  seguir->aprender(a_avanzar);
+  comportamiento->aprender(c_seguir);
 
-  Secuencia* girar_der = new Secuencia("Girar derecha");
-  girar_der->aprender(s0n);
-  girar_der->aprender(s1b);
-  girar_der->aprender(girar);
-  comportamiento->aprender(girar_der);
+  // Girar derecha
+  // girar derecha := negro y blanco => girar
+  Secuencia* c_girar_der = new Secuencia("Girar derecha");
+  c_girar_der->aprender(m_s0n);
+  c_girar_der->aprender(m_s1b);
+  c_girar_der->aprender(a_girar);
+  comportamiento->aprender(c_girar_der);
 
-  Secuencia* girar_izq = new Secuencia("Girar izquierda");
-  girar_izq->aprender(s1n);
-  girar_izq->aprender(s0b);
-  girar_izq->aprender(girar);
-  comportamiento->aprender(girar_izq);
-  
+  // Girar izquierda
+  // girar izquierda := blanco y negro => girar
+  Secuencia* c_girar_izq = new Secuencia("Girar izquierda");
+  c_girar_izq->aprender(m_s0b);
+  c_girar_izq->aprender(m_s1n);
+  c_girar_izq->aprender(a_girar);
+  comportamiento->aprender(c_girar_izq);
+
+  // Retroceder
+  // retroceder := negro y negro => retroceder
+  Secuencia* c_retroceder = new Secuencia("Retroceder");
+  c_retroceder->aprender(m_s0n);
+  c_retroceder->aprender(m_s1n);
+  c_retroceder->aprender(a_retroceder);
+  comportamiento->aprender(c_retroceder);
+
   Serial.println(" === END SETUP ===");
-  Serial.println(CORTE);
-  
 }
 
 void loop(){
+  // El seguidor de lineas que lee distancia al pedo :P
+  memoria.sensores[0] = analogRead(izquierdaIR);
+  memoria.sensores[1] = analogRead(derechaIR);
+  memoria.sensores[2] = leerDistancia(pingPin);
 
+  // wait 100 milli seconds before looping again
+  comportamiento->actuar(memoria);
+  delay(100);
+}
+
+Estado f_blanco(int indice, Memoria memoria) {
+  return memoria.sensores[indice] > CORTE? BH_EXITO : BH_FALLO;
+}
+
+Estado f_negro(int indice, Memoria memoria) {
+  return memoria.sensores[indice] < CORTE? BH_EXITO : BH_FALLO;
+}
+
+Estado f_avanzar(Memoria memoria) {
+  Serial.println("Avanzando");
+  Serial.print(MOTOR_MAX);
+  Serial.print(" ");
+  Serial.println(MOTOR_MAX);
+  //motor1.setSpeed(MOTOR_MAX);
+  //motor2.setSpeed(MOTOR_MAX);
+  return BH_CORRIENDO;
+}
+
+Estado f_retroceder(Memoria memoria) {
+  Serial.print("Re reversa papi ");
+  Serial.print(MOTOR_MAX);
+  Serial.print(" ");
+  Serial.println(MOTOR_MAX);
+  //motor1.setSpeed(-MOTOR_MAX);
+  //motor2.setSpeed(-MOTOR_MAX);
+  return BH_CORRIENDO;
+}
+
+Estado f_girar(Memoria memoria) {
+  fuzzy->setInput(0, memoria.sensores[0]);
+  fuzzy->setInput(1, memoria.sensores[1]);
+  fuzzy->fuzzify();
+  int m1_speed = fuzzy->defuzzify(1);
+  int m2_speed = fuzzy->defuzzify(0);
+  Serial.print("Girando ");
+  Serial.print(m1_speed);
+  Serial.print(" ");
+  Serial.println(m2_speed);
+  //motor1.setSpeed(m1_speed);
+  //motor2.setSpeed(m2_speed);
+  return BH_CORRIENDO;
+}
+
+long leerDistancia(int pingPin)
+{
+  int pulseTime = 0;
   // The PING))) is triggered by a HIGH pulse of 2 or more microseconds.
   // Give a short LOW pulse beforehand to ensure a clean HIGH pulse:
   pinMode(pingPin, OUTPUT);
@@ -144,55 +195,7 @@ void loop(){
   pulseTime = pulseIn(pingPin, HIGH);
 
   // convert the time into a distance
-  memoria.sensores[0] = analogRead(izquierdaIR);
-  memoria.sensores[1] = analogRead(derechaIR);
-  memoria.sensores[2] = microsecondsToCentimeters(pulseTime);
-  
-  
-  fuzzy->setInput(1, memoria.sensores[2]);
-
-  fuzzy->fuzzify();
-
-  float output = fuzzy->defuzzify(1);
-
-  //Serial.print(memoria.sensores[0]);
-  //  Serial.print(" ");
-  //Serial.print(memoria.sensores[1]);
-  //Serial.print(" ");
-  //Serial.print(memoria.sensores[2]);
-  //Serial.print(" ");
-  //Serial.println(output);
-  
-  // wait 100 milli seconds before looping again
-  comportamiento->actuar(memoria);
-  delay(100);
-}
-
-
-
-Estado blanco(int indice, Memoria memoria) {
-  return memoria.sensores[indice] > CORTE? BH_EXITO : BH_FALLO;
-}
-
-Estado negro(int indice, Memoria memoria) {
-  return memoria.sensores[indice] < CORTE? BH_EXITO : BH_FALLO;
-}
-
-Estado traccionar(Memoria memoria) {
-  Serial.println("Avanzando");
-  //motor1.setSpeed(MAX);
-  //motor2.setSpeed(MAX);
-  return BH_CORRIENDO;
-}
-
-Estado rotar(Memoria memoria) {
-  Serial.println("Rotar");
-  //fuzzy->setInput(0, memoria.sensores[0]);
-  //fuzzy->setInput(1, memoria.sensores[1]);
-  //fuzzy->fuzzify();
-  //motor1.setSpeed(fuzzy->defuzzify(1));
-  //motor2.setSpeed(fuzzy->defuzzify(0));
-  return BH_CORRIENDO;
+  return microsecondsToCentimeters(pulseTime);
 }
 
 long microsecondsToCentimeters(unsigned long microseconds)
@@ -202,4 +205,3 @@ long microsecondsToCentimeters(unsigned long microseconds)
   // object we take half of the distance travelled.
   return microseconds / 29 / 2;
 }
-
