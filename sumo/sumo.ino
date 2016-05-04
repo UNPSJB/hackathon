@@ -8,11 +8,12 @@
 #define izquierdaIR A0
 #define derechaIR A1
 #define pingPin A5
-#define IR_MIN = 430;
-#define IR_MAX = 990;
-#define IR_CORTE = (IR_MIN + IR_MAX) / 2;
-#define MOTOR_MIN = 10;
-#define MOTOR_MAX = 100;
+#define IR_MIN 430
+#define IR_MAX 990
+#define IR_CORTE ((IR_MIN + IR_MAX) / 2)
+#define MOTOR_MIN 10
+#define MOTOR_MAX 100
+#define ULTRA_CORTE 40
 
 DCMotor motor1(M0_EN, M0_D0, M0_D1);
 DCMotor motor2(M1_EN, M1_D0, M1_D1);
@@ -36,8 +37,11 @@ void setup(){
   // Acciones del comportamiento
   Accion* a_avanzar = new Accion("Avanzar", f_avanzar);
   Accion* a_evitar = new Accion("Evitar", f_evitar);
-  Accion* a_girar = new Accion("Rotar", f_girar);
-  Accion* a_retroceder = new Accion("Rotar", f_retroceder);
+  Accion* a_buscar_girando = new Accion("Buscar Girando", f_buscar);
+  Accion* a_buscar_deambulando = new Accion("Buscar Deambulando", f_buscar);
+  Accion* a_buscar_borracho = new Accion("Buscar Borracho", f_buscar);
+  Mirar* m_oponente = new Mirar("Oponente", 2, f_oponente);
+  Mirar* m_nooponente = new Mirar("No Oponente", 2, f_nooponente);
   Mirar* m_s0b = new Mirar("S0 blanco", 0, f_blanco);
   Mirar* m_s1b = new Mirar("S1 blanco", 1, f_blanco);
   Mirar* m_s0n = new Mirar("S1 negro", 0, f_negro);
@@ -48,8 +52,8 @@ void setup(){
   // evitar linea := blanco o blanco => evitar
   Secuencia* c_evitar = new Secuencia("Evitar linea");
   Selector* m_blanco = new Selector("Mirar blanco");
-  c_blanco->aprender(m_s0b);
-  c_blanco->aprender(m_s1b);
+  m_blanco->aprender(m_s0b);
+  m_blanco->aprender(m_s1b);
   c_evitar->aprender(m_blanco);
   c_evitar->aprender(a_evitar);
   comportamiento->aprender(c_evitar);
@@ -57,15 +61,19 @@ void setup(){
   // Buscar oponente
   // buscar oponente := !oponente => buscar
   Secuencia* c_buscar = new Secuencia("Buscar oponente");
-  c_girar_der->aprender(m_oponente);  //Negar esto o hacer algo
-  c_girar_der->aprender(a_buscar);
+  Selector* a_buscar = new Selector("Buscando");
+  a_buscar->aprender(a_buscar_girando);
+  a_buscar->aprender(a_buscar_deambulando);
+  a_buscar->aprender(a_buscar_borracho);
+  c_buscar->aprender(m_nooponente);
+  c_buscar->aprender(a_buscar);
   comportamiento->aprender(c_buscar);
 
   // Atacar
   // atacar := oponente => avanzar
   Secuencia* c_atacar = new Secuencia("Atacar");
-  c_girar_izq->aprender(m_oponente);
-  c_girar_izq->aprender(a_avanzar);
+  c_atacar->aprender(m_oponente);
+  c_atacar->aprender(a_avanzar);
   comportamiento->aprender(c_atacar);
 
   Serial.println(" === END SETUP ===");
@@ -83,46 +91,40 @@ void loop(){
 }
 
 Estado f_blanco(int indice, Memoria memoria) {
-  return memoria.sensores[indice] > CORTE? BH_EXITO : BH_FALLO;
+  return memoria.sensores[indice] > IR_CORTE? BH_EXITO : BH_FALLO;
 }
 
 Estado f_negro(int indice, Memoria memoria) {
-  return memoria.sensores[indice] < CORTE? BH_EXITO : BH_FALLO;
+  return memoria.sensores[indice] < IR_CORTE? BH_EXITO : BH_FALLO;
+}
+
+Estado f_oponente(int indice, Memoria memoria) {
+  Serial.println(memoria.sensores[indice]);
+  return memoria.sensores[indice] < ULTRA_CORTE ? BH_EXITO : BH_FALLO;
+}
+
+Estado f_nooponente(int indice, Memoria memoria) {
+  Serial.println(memoria.sensores[indice]);
+  return memoria.sensores[indice] > ULTRA_CORTE ? BH_EXITO : BH_FALLO;
 }
 
 Estado f_avanzar(Memoria memoria) {
-  Serial.println("Avanzando");
-  Serial.print(MOTOR_MAX);
-  Serial.print(" ");
-  Serial.println(MOTOR_MAX);
+  Serial.println("Atacando");
   //motor1.setSpeed(MOTOR_MAX);
   //motor2.setSpeed(MOTOR_MAX);
-  return BH_CORRIENDO;
+  return BH_EXITO;
 }
 
-Estado f_retroceder(Memoria memoria) {
-  Serial.print("Re reversa papi ");
-  Serial.print(MOTOR_MAX);
-  Serial.print(" ");
-  Serial.println(MOTOR_MAX);
-  //motor1.setSpeed(-MOTOR_MAX);
-  //motor2.setSpeed(-MOTOR_MAX);
+Estado f_buscar(Memoria memoria) {
+  Serial.println("Buscando al oponente");
   return BH_CORRIENDO;
 }
 
 Estado f_evitar(Memoria memoria) {
-  fuzzy->setInput(0, memoria.sensores[0]);
-  fuzzy->setInput(1, memoria.sensores[1]);
-  fuzzy->fuzzify();
-  int m1_speed = fuzzy->defuzzify(1);
-  int m2_speed = fuzzy->defuzzify(0);
-  Serial.print("Girando ");
-  Serial.print(m1_speed);
-  Serial.print(" ");
-  Serial.println(m2_speed);
+  Serial.println("Evitar linea");
   //motor1.setSpeed(m1_speed);
   //motor2.setSpeed(m2_speed);
-  return BH_CORRIENDO;
+  return BH_EXITO;
 }
 
 long leerDistancia(int pingPin)

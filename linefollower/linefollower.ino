@@ -3,31 +3,20 @@
 #include <system_configuration.h>
 #include <unwind-cxx.h>
 #include <DCMotor.h>
-#include <FuzzyRule.h>
-#include <FuzzyComposition.h>
-#include <Fuzzy.h>
-#include <FuzzyRuleConsequent.h>
-#include <FuzzyOutput.h>
-#include <FuzzyInput.h>
-#include <FuzzyIO.h>
-#include <FuzzySet.h>
-#include <FuzzyRuleAntecedent.h>
 #include "BehaviorTree.h"
 
 #define izquierdaIR A0
 #define derechaIR A1
 #define pingPin A5
-#define IR_MIN 430;
-#define IR_MAX 990;
-#define IR_CORTE (IR_MIN + IR_MAX) / 2;
-#define MOTOR_MIN 10;
-#define MOTOR_MAX 100;
+#define IR_MIN 330
+#define IR_MAX 990
+#define IR_CORTE ((IR_MIN + IR_MAX) / 2)
+#define MOTOR_MIN 20
+#define MOTOR_MAX 70
 
 DCMotor motor1(M0_EN, M0_D0, M0_D1);
 DCMotor motor2(M1_EN, M1_D0, M1_D1);
 
-// Instanciando un objeto de biblioteca
-Fuzzy* fuzzy = new Fuzzy();
 Comportamiento* comportamiento = new Comportamiento("N6 Seguidor de lineas");
 
 unsigned long sensores[10] = {0};
@@ -40,42 +29,10 @@ void setup(){
   Serial.begin(9600);
 
   //Motores
-  motor1.setClockwise(false);
-  motor2.setClockwise(false);
-
-  FuzzyInput* intencidad = new FuzzyInput(1);
-  FuzzySet* baja = new FuzzySet(0, 30, 30, 50);
-  intencidad->addFuzzySet(baja);
-  FuzzySet* alta = new FuzzySet(40, 60, 60, 80);
-  intencidad->addFuzzySet(alta);
-
-  fuzzy->addFuzzyInput(intencidad);
-
-  FuzzyOutput* velocidad = new FuzzyOutput(1);
-  FuzzySet* lenta = new FuzzySet(0, 10, 10, 20);
-  velocidad->addFuzzySet(lenta);
-  FuzzySet* rapida = new FuzzySet(10, 20, 30, 40);
-  velocidad->addFuzzySet(rapida);
-
-  fuzzy->addFuzzyOutput(velocidad);
-
-  // Si la intensidad es baja => la velocidad es rapida
-  FuzzyRuleAntecedent* ifIntensidadBaja = new FuzzyRuleAntecedent();
-  ifIntensidadBaja->joinSingle(baja);
-  FuzzyRuleConsequent* thenVelocidadRapida = new FuzzyRuleConsequent();
-  thenVelocidadRapida->addOutput(rapida);
-  // La regla
-  FuzzyRule* fuzzyRegla01 = new FuzzyRule(1, ifIntensidadBaja, thenVelocidadRapida);
-  fuzzy->addFuzzyRule(fuzzyRegla01);
-
-  // Si la intensidad es alta => la velocidad es baja
-  FuzzyRuleAntecedent* ifIntensidadAlta = new FuzzyRuleAntecedent();
-  ifIntensidadAlta->joinSingle(alta);
-  FuzzyRuleConsequent* thenVelocidadLenta = new FuzzyRuleConsequent();
-  thenVelocidadLenta->addOutput(lenta);
-  // La regla
-  FuzzyRule* fuzzyRegla02 = new FuzzyRule(3, ifIntensidadAlta, thenVelocidadLenta);
-  fuzzy->addFuzzyRule(fuzzyRegla02);
+  motor1.setClockwise(true);
+  motor2.setClockwise(true);
+  memoria.comportamientos[0] = MOTOR_MAX;
+  memoria.comportamientos[1] = MOTOR_MAX;
 
   // Acciones del comportamiento
   Accion* a_avanzar = new Accion("Avanzar", f_avanzar);
@@ -119,14 +76,21 @@ void setup(){
   c_retroceder->aprender(a_retroceder);
   comportamiento->aprender(c_retroceder);
 
-  Serial.println(" === END SETUP ===");
+  //Serial.println(" === END SETUP ===");
 }
+
+
 
 void loop(){
   // El seguidor de lineas que lee distancia al pedo :P
   memoria.sensores[0] = analogRead(izquierdaIR);
   memoria.sensores[1] = analogRead(derechaIR);
-  memoria.sensores[2] = leerDistancia(pingPin);
+  /*
+  Serial.print(memoria.sensores[0]);
+  Serial.print(" ");
+  Serial.println(memoria.sensores[1]);
+  */
+  memoria.sensores[2] = 0;//leerDistancia(pingPin);
 
   // wait 100 milli seconds before looping again
   comportamiento->actuar(memoria);
@@ -134,47 +98,36 @@ void loop(){
 }
 
 Estado f_blanco(int indice, Memoria memoria) {
-  return memoria.sensores[indice] > CORTE? BH_EXITO : BH_FALLO;
+  return memoria.sensores[indice] > IR_CORTE? BH_EXITO : BH_FALLO;
 }
 
 Estado f_negro(int indice, Memoria memoria) {
-  return memoria.sensores[indice] < CORTE? BH_EXITO : BH_FALLO;
+  return memoria.sensores[indice] < IR_CORTE? BH_EXITO : BH_FALLO;
 }
 
 Estado f_avanzar(Memoria memoria) {
-  Serial.println("Avanzando");
-  Serial.print(MOTOR_MAX);
-  Serial.print(" ");
-  Serial.println(MOTOR_MAX);
-  //motor1.setSpeed(MOTOR_MAX);
-  //motor2.setSpeed(MOTOR_MAX);
+  memoria.comportamientos[0] = MOTOR_MAX;
+  memoria.comportamientos[1] = MOTOR_MAX;
+  motor1.setSpeed(memoria.comportamientos[0]);
+  motor2.setSpeed(memoria.comportamientos[1]);
   return BH_EXITO;
   //return BH_CORRIENDO;
 }
 
 Estado f_retroceder(Memoria memoria) {
-  Serial.print("Re reversa papi ");
-  Serial.print(MOTOR_MAX);
-  Serial.print(" ");
-  Serial.println(MOTOR_MAX);
-  //motor1.setSpeed(-MOTOR_MAX);
-  //motor2.setSpeed(-MOTOR_MAX);
+  motor1.setSpeed(memoria.comportamientos[0]);
+  motor2.setSpeed(memoria.comportamientos[1]);
   return BH_EXITO;
   //return BH_CORRIENDO;
 }
 
 Estado f_girar(Memoria memoria) {
-  fuzzy->setInput(0, memoria.sensores[0]);
-  fuzzy->setInput(1, memoria.sensores[1]);
-  fuzzy->fuzzify();
-  int m1_speed = fuzzy->defuzzify(1);
-  int m2_speed = fuzzy->defuzzify(0);
-  Serial.print("Girando ");
-  Serial.print(m1_speed);
-  Serial.print(" ");
-  Serial.println(m2_speed);
-  //motor1.setSpeed(m1_speed);
-  //motor2.setSpeed(m2_speed);
+  float m2_ = ((float)memoria.sensores[0] / 1000);
+  float m1_ = ((float)memoria.sensores[1] / 1000);
+  memoria.comportamientos[0] = memoria.comportamientos[0] * m1_;
+  memoria.comportamientos[1] = memoria.comportamientos[1] * m2_;
+  motor1.setSpeed(memoria.comportamientos[0]);
+  motor2.setSpeed(memoria.comportamientos[1]);
   return BH_EXITO;
   //return BH_CORRIENDO;
 }
