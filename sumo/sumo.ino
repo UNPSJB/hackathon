@@ -33,6 +33,7 @@ void setup(){
   //Motores
   motor1.setClockwise(false);
   motor2.setClockwise(false);
+  memoria.comportamientos[ALGORITMOS] = 0;
 
   // Acciones del comportamiento
   Accion* a_avanzar = new Accion("Avanzar", f_avanzar);
@@ -115,9 +116,30 @@ Estado f_avanzar(Memoria memoria) {
   return BH_EXITO;
 }
 
-Estado f_buscar(Memoria memoria) {
-  Serial.println("Buscando al oponente");
-  return BH_CORRIENDO;
+Estado f_buscar_girando(Memoria memoria) {
+  Serial.println("Buscando al oponente dando vueltas");
+  if (memoria.comportamientos[ALGORITMOS] != 0) {
+     return BH_FALLO;
+  }
+  micros();
+  millis();
+  return BH_EXITO;
+}
+
+Estado f_buscar_(Memoria memoria) {
+  Serial.println("Buscando al oponente dando vueltas");
+  if (memoria.comportamientos[ALGORITMOS] != 1) {
+     return BH_FALLO;
+  }
+  return BH_EXITO;
+}
+
+Estado f_buscar_girando(Memoria memoria) {
+  Serial.println("Buscando al oponente dando vueltas");
+  if (memoria.comportamientos[ALGORITMOS] != 2) {
+     return BH_FALLO;
+  }
+  return BH_EXITO;
 }
 
 Estado f_evitar(Memoria memoria) {
