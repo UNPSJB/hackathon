@@ -18,7 +18,7 @@ enum Estado
 
 typedef struct Memoria {
   unsigned long *sensores, *comportamientos;
-} 
+}
 Memoria;
 
 typedef Estado (*Tarea)(Memoria);
@@ -194,7 +194,7 @@ public:
   Nodo("Decorador"), m_pChild(child) {
   }
 };
-
+    
 class Repetir : 
 public Decorador
 {
